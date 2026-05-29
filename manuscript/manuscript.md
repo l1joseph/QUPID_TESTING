@@ -35,7 +35,7 @@ The cached-graph greedy baseline ran faster than Qupid in absolute terms (0.9 s 
 
 Runtime also scaled favorably with constraint tightness. Going from one covariate (sex only) to three covariates (sex + age category + BMI category) reduced Qupid's wall-clock time from 18.4 s to 1.5 s at k = 100, an order-of-magnitude speedup because a sparser bipartite graph requires fewer augmenting paths. The rebuild-every-iteration baseline showed no such improvement (15.7 s → 18.7 s) because it pays the graph-construction cost on every iteration regardless of graph density.
 
-![Figure 1. Qupid runtime benchmarks.](benchmarking/figures/qupid_benchmark_runtime.png)
+![Figure 1. Qupid runtime benchmarks.](figures/qupid_benchmark_runtime.png)
 
 **Figure 1. Qupid runtime characteristics (AGP IBD dataset, 169 cases).** (a) Runtime vs. background pool size (k = 100 matchings, 3 covariates): Qupid (blue) completes in < 1 s at all pool sizes and achieves 100/100 successful matchings; both greedy baselines fail entirely at n<sub>controls</sub> ≤ 1,000. (b) Runtime vs. number of matchings k (4,672 controls): Qupid achieves a 12.5× speedup over the naive rebuild-every-iteration baseline at k = 100. (c) Fraction of iterations fully matched vs. background pool size, showing Hopcroft–Karp's correctness advantage over greedy assignment in the tight-graph regime. (d) Speedup factor of Qupid over the naive baseline as a function of k.
 
@@ -45,7 +45,7 @@ We first evaluated Qupid on the American Gut Project (AGP) cohort, which contain
 
 Qupid matching produced significantly larger effect sizes for the IBD case-control comparison (Fig. 2a). Mean PERMANOVA R<sup>2</sup> increased from 0.40 ± 0.07% (pre-CCM bootstrap) to 0.43 ± 0.09% (post-CCM), an 8% relative increase (p = 0.006, t-test). While these absolute effect sizes are modest, as is typical for microbiome studies in which any single covariate explains a small fraction of compositional variance, the consistent relative increase is consistent with heterogeneity in the large control pool attenuating the measured disease signal. Pre- and post-CCM effect sizes were highly correlated across all metadata categories (Pearson r = 0.995, p < 10<sup>−10</sup>; Fig. 2b), with the linear fit lying systematically above the identity line, confirming that matching amplified effect sizes across covariates rather than only the case-control axis.
 
-![Figure 2. AGP and HMP2 CCM effect sizes.](benchmarking/figures/fig2_agp_hmp2.png)
+![Figure 2. AGP and HMP2 CCM effect sizes.](figures/fig2_agp_hmp2.png)
 
 ### CCM stabilizes effect size estimates in the HMP2 IBD cohort
 
@@ -62,7 +62,7 @@ To test whether CCM universally increases effect sizes, we analyzed the THDMI (T
 
 In contrast to AGP and HMP2, the THDMI unhealthy effect size *decreased* after matching (Fig. 3a): R<sup>2</sup> dropped from 0.206 ± 0.038% (pre-CCM bootstrap) to 0.134 ± 0.014% (post-CCM), a 35% relative decrease. The fraction of iterations achieving significance fell from 97 of 100 (pre-CCM, standard PERMANOVA p < 0.05) to 67 of 100 (post-CCM, pair-aware restricted-permutation p < 0.05). The continued significance in a majority of post-CCM iterations indicates a residual association beyond demographic confounding; the 35% reduction in mean R<sup>2</sup> and the across-covariate scatter (Fig. 3b) — where the largest effect-size decreases fall precisely on the variables matched upon (BMI category, sex, THDMI cohort, and host age) — demonstrate that those demographic variables contribute substantially to the apparent effect. Together, these results indicate that the unhealthy-microbiome association in THDMI is substantially, though not entirely, attributable to demographic covariates. Strikingly, Qupid independently reproduced the same confounding structure that the original THDMI study handled through regression adjustment [17]: by balancing cases and controls on the exact demographic variables that dominate between-sample microbiome variation in that cohort, Qupid reveals the demographic contribution without requiring any model specification or covariate selection beyond the matching criteria.
 
-![Figure 3. THDMI CCM confounding exposure.](benchmarking/figures/fig3_thdmi.png)
+![Figure 3. THDMI CCM confounding exposure.](figures/fig3_thdmi.png)
 
 ## Discussion
 
