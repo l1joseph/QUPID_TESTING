@@ -129,9 +129,12 @@ def main():
     pre_vals = pre_all[pre_all["category"] == "is_case"]["r_squared"].values
     post_vals = post_all[post_all["category"] == "is_case"]["r_squared"].values
 
-    # Use FDR q-value when available (post-CCM), else fall back to raw p-value
-    pre_col = "q_value" if "q_value" in pre_all.columns else "p_value"
-    post_col = "q_value" if "q_value" in post_all.columns else "p_value"
+    # Pre-CCM: standard p-value (bootstrap arm has no pair structure)
+    # Post-CCM: pair-aware restricted-permutation p-value (primary significance criterion)
+    pre_col = "p_value"
+    post_col = (
+        "p_value_restricted" if "p_value_restricted" in post_all.columns else "p_value"
+    )
     pre_sig = (pre_all[pre_all["category"] == "is_case"][pre_col] < 0.05).sum()
     post_sig = (post_all[post_all["category"] == "is_case"][post_col] < 0.05).sum()
 
@@ -209,11 +212,11 @@ def main():
     )
     ax.text(0.5, y_top * 1.01, "***", ha="center", va="bottom", fontsize=6)
 
-    # significance counts
+    # significance counts (pre: standard p, post: pair-aware restricted p)
     ax.text(
         0,
         -0.14,
-        f"{pre_sig}/100\nsignificant",
+        f"{pre_sig}/100\nsig. (p<0.05)",
         transform=ax.get_xaxis_transform(),
         ha="center",
         fontsize=5,
@@ -222,7 +225,7 @@ def main():
     ax.text(
         1,
         -0.14,
-        f"{post_sig}/100\nsignificant",
+        f"{post_sig}/100\nsig. (restr. p<0.05)",
         transform=ax.get_xaxis_transform(),
         ha="center",
         fontsize=5,
