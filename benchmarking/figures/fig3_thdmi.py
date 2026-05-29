@@ -251,7 +251,7 @@ def main():
     colors = ["#882255" if c in matched_vars else PALETTE[2] for c in cats]
 
     lims = [min(x.min(), y.min()) * 0.85, max(x.max(), y.max()) * 1.08]
-    ax.plot(lims, lims, color="gray", lw=0.6, ls="--", zorder=0)
+    ax.plot(lims, lims, color="gray", lw=0.6, ls="--", zorder=0, label="y = x")
 
     for xi, yi, xe_i, ye_i, c in zip(x, y, xe, ye, colors):
         ax.errorbar(

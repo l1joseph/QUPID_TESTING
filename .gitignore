@@ -24,3 +24,14 @@ benchmarking/benchmark_*/
 # Scratch / manuscript drafts
 manuscript.docx
 *.docx
+
+# Scratch notebooks archive
+archive/
+
+# Nested git repos / large data directories
+qupid/
+barnacle2_agp_v2/
+
+# Claude Code workspace
+benchmarking/.claude/
+.claude/
