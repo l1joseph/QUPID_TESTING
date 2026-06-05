@@ -160,7 +160,7 @@ def qupid_match(
         background=background,
         categories=discrete_cats + list((numeric_tolerances or {}).keys()),
         tolerance_map=numeric_tolerances or {},
-        on_failure="ignore",
+        on_failure="continue",
     )
     pairs = cm.create_matched_pairs(iterations=n_iterations, strict=False)
     return len(pairs.case_matches)

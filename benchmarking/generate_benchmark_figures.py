@@ -1,9 +1,15 @@
 """
 Generate manuscript figures from real qupid_benchmark.py output.
 
-Reads benchmark_results.tsv produced on barnacle2 and writes:
-  - fig_runtime_combined.{png,pdf}   -- 3-panel overview figure
-  - fig_speedup_vs_iterations.{png,pdf}  -- qupid speedup over naive
+Reads benchmark_results.tsv produced by qupid_benchmark.py (single dataset)
+or benchmark_results_real.tsv (multi-dataset, with a leading `dataset` column)
+and writes:
+  - fig_runtime_combined.{png,pdf}      3-panel overview figure
+  - fig_speedup_vs_iterations.{png,pdf} qupid speedup over naive
+
+When multiple datasets are present, each panel shows one line per
+(method, dataset) combination using the same color per method and different
+linestyles per dataset.
 
 Usage (from benchmarking/):
     python generate_benchmark_figures.py [--results benchmark_agp/benchmark_results.tsv]
@@ -29,6 +35,8 @@ LABELS = {
     "graph_once": "Cached graph + greedy assignment",
     "naive_loop": "Rebuild graph every iteration",
 }
+DATASET_LINESTYLES = ["solid", "dashed", "dotted", "dashdot"]
+MARKERS = {"qupid": "o", "graph_once": "s", "naive_loop": "^"}
 
 plt.rcParams.update(
     {
@@ -41,22 +49,41 @@ plt.rcParams.update(
 )
 
 
+def _iter_series(df: pd.DataFrame, experiment: str):
+    """Yield (method, dataset, subset_df) tuples for an experiment."""
+    sub = df[df["experiment"] == experiment]
+    datasets = sorted(sub["dataset"].unique()) if "dataset" in sub.columns else [None]
+    for method in ["naive_loop", "graph_once", "qupid"]:
+        for i, ds in enumerate(datasets):
+            if ds is not None:
+                rows = sub[(sub["method"] == method) & (sub["dataset"] == ds)]
+            else:
+                rows = sub[sub["method"] == method]
+            if rows.empty:
+                continue
+            label = LABELS[method]
+            if ds is not None and len(datasets) > 1:
+                label = f"{LABELS[method]} ({ds})"
+            yield method, ds, i, rows.sort_values(
+                "n_controls"
+                if experiment == "background_size"
+                else "n_iterations" if experiment == "iterations" else "n_covariates"
+            ), label
+
+
 def plot_combined(df: pd.DataFrame, out: Path) -> None:
     fig, axes = plt.subplots(1, 3, figsize=(14.5, 4.3))
 
     # ── Panel a: runtime vs background size ──────────────────────────────
     ax = axes[0]
-    bg = df[df["experiment"] == "background_size"].sort_values("n_controls")
-    for method in ["naive_loop", "graph_once", "qupid"]:
-        sub = bg[bg["method"] == method]
-        if sub.empty:
-            continue
+    for method, ds, i, rows, label in _iter_series(df, "background_size"):
         ax.plot(
-            sub["n_controls"],
-            sub["elapsed_sec"],
-            marker="o",
+            rows["n_controls"],
+            rows["elapsed_sec"],
+            marker=MARKERS.get(method, "o"),
             color=PALETTE[method],
-            label=LABELS[method],
+            linestyle=DATASET_LINESTYLES[i % len(DATASET_LINESTYLES)],
+            label=label,
             linewidth=2,
             markersize=5,
         )
@@ -64,43 +91,48 @@ def plot_combined(df: pd.DataFrame, out: Path) -> None:
     ax.set_yscale("log")
     ax.set_xlabel("Background pool size (n_controls)")
     ax.set_ylabel("Wall-clock time (s)")
-    k_bg = int(bg[bg["method"] == "qupid"]["n_iterations"].iloc[0])
-    n_cases = int(bg[bg["method"] == "qupid"]["n_cases"].iloc[0])
+    bg = df[df["experiment"] == "background_size"]
+    k_bg = (
+        int(bg[bg["method"] == "qupid"]["n_iterations"].iloc[0])
+        if not bg.empty
+        else 100
+    )
+    n_cases = int(bg[bg["method"] == "qupid"]["n_cases"].iloc[0]) if not bg.empty else 0
     ax.set_title(
         f"a. Runtime vs. background size\n({n_cases} cases, k = {k_bg} matchings)",
         fontsize=10,
     )
-    ax.legend(loc="upper left", frameon=True, fontsize=8.5)
+    ax.legend(loc="upper left", frameon=True, fontsize=7.5)
     ax.grid(True, which="both", alpha=0.3)
 
     # ── Panel b: runtime vs iterations ───────────────────────────────────
     ax = axes[1]
-    it = df[df["experiment"] == "iterations"].sort_values("n_iterations")
-    for method in ["naive_loop", "graph_once", "qupid"]:
-        sub = it[it["method"] == method]
-        if sub.empty:
-            continue
+    for method, ds, i, rows, label in _iter_series(df, "iterations"):
         ax.plot(
-            sub["n_iterations"],
-            sub["elapsed_sec"],
-            marker="o",
+            rows["n_iterations"],
+            rows["elapsed_sec"],
+            marker=MARKERS.get(method, "o"),
             color=PALETTE[method],
-            label=LABELS[method],
+            linestyle=DATASET_LINESTYLES[i % len(DATASET_LINESTYLES)],
+            label=label,
             linewidth=2,
             markersize=5,
         )
 
-    # annotate speedup at the largest shared k
+    it = df[df["experiment"] == "iterations"]
+    # Annotate speedup at the largest shared k for the first dataset
+    ds0 = sorted(it["dataset"].unique())[0] if "dataset" in it.columns else None
+    it0 = it[it["dataset"] == ds0] if ds0 is not None else it
     shared_k = sorted(
-        set(it[it["method"] == "qupid"]["n_iterations"])
-        & set(it[it["method"] == "naive_loop"]["n_iterations"])
+        set(it0[it0["method"] == "qupid"]["n_iterations"])
+        & set(it0[it0["method"] == "naive_loop"]["n_iterations"])
     )
     if shared_k:
         k_ann = shared_k[-1]
-        q_t = it[(it["method"] == "qupid") & (it["n_iterations"] == k_ann)][
+        q_t = it0[(it0["method"] == "qupid") & (it0["n_iterations"] == k_ann)][
             "elapsed_sec"
         ].values[0]
-        n_t = it[(it["method"] == "naive_loop") & (it["n_iterations"] == k_ann)][
+        n_t = it0[(it0["method"] == "naive_loop") & (it0["n_iterations"] == k_ann)][
             "elapsed_sec"
         ].values[0]
         speedup = n_t / q_t
@@ -112,8 +144,12 @@ def plot_combined(df: pd.DataFrame, out: Path) -> None:
             arrowprops=dict(arrowstyle="->", color="gray", lw=1),
         )
 
-    n_bg_it = int(it[it["method"] == "qupid"]["n_controls"].iloc[0])
-    n_cases_it = int(it[it["method"] == "qupid"]["n_cases"].iloc[0])
+    n_bg_it = (
+        int(it0[it0["method"] == "qupid"]["n_controls"].iloc[0]) if not it0.empty else 0
+    )
+    n_cases_it = (
+        int(it0[it0["method"] == "qupid"]["n_cases"].iloc[0]) if not it0.empty else 0
+    )
     ax.set_xscale("log")
     ax.set_yscale("log")
     ax.set_xlabel("Number of matchings (k)")
@@ -122,26 +158,24 @@ def plot_combined(df: pd.DataFrame, out: Path) -> None:
         f"b. Runtime vs. number of matchings\n({n_cases_it} cases, {n_bg_it} controls)",
         fontsize=10,
     )
-    ax.legend(loc="upper left", frameon=True, fontsize=8.5)
+    ax.legend(loc="upper left", frameon=True, fontsize=7.5)
     ax.grid(True, which="both", alpha=0.3)
 
-    # ── Panel c: matching correctness vs background size ─────────────────
+    # ── Panel c: matching success rate ────────────────────────────────────
     ax = axes[2]
-    for method in ["qupid", "graph_once", "naive_loop"]:
-        sub = bg[bg["method"] == method].copy()
-        if sub.empty:
-            continue
-        sub["success_rate"] = sub["successful_iterations"] / sub["n_iterations"]
+    for method, ds, i, rows, label in _iter_series(df, "background_size"):
+        rows = rows.copy()
+        rows["success_rate"] = rows["successful_iterations"] / rows["n_iterations"]
         ax.plot(
-            sub["n_controls"],
-            sub["success_rate"],
-            marker="o" if method == "qupid" else "s",
+            rows["n_controls"],
+            rows["success_rate"],
+            marker=MARKERS.get(method, "o"),
             color=PALETTE[method],
-            label=LABELS[method],
+            linestyle=DATASET_LINESTYLES[i % len(DATASET_LINESTYLES)],
+            label=label,
             linewidth=2,
             markersize=6,
         )
-
     ax.set_xscale("log")
     ax.set_xlabel("Background pool size (n_controls)")
     ax.set_ylabel("Fraction of iterations fully matched")
@@ -149,83 +183,91 @@ def plot_combined(df: pd.DataFrame, out: Path) -> None:
         f"c. Matching success rate\n({n_cases} cases, k = {k_bg})",
         fontsize=10,
     )
-    ax.legend(loc="lower right", frameon=True, fontsize=8.5)
+    ax.legend(loc="lower right", frameon=True, fontsize=7.5)
     ax.set_ylim(-0.05, 1.05)
     ax.grid(True, which="both", alpha=0.3)
 
+    datasets = sorted(df["dataset"].unique()) if "dataset" in df.columns else []
+    ds_str = " + ".join(datasets) if datasets else "real benchmarks"
     fig.suptitle(
-        "Qupid runtime characteristics (AGP IBD dataset, real benchmarks)",
+        f"Qupid runtime characteristics ({ds_str})",
         fontsize=11,
         y=1.02,
     )
     fig.tight_layout()
-    fig.savefig(out / "fig_runtime_combined.png", dpi=200, bbox_inches="tight")
-    fig.savefig(out / "fig_runtime_combined.pdf", bbox_inches="tight")
+    for fmt in ("png", "pdf"):
+        fig.savefig(out / f"fig_runtime_combined.{fmt}", dpi=200, bbox_inches="tight")
     plt.close(fig)
-    print(f"  fig_runtime_combined.{{png,pdf}}")
+    print("  fig_runtime_combined.{png,pdf}")
 
 
 def plot_speedup(df: pd.DataFrame, out: Path) -> None:
-    it = df[df["experiment"] == "iterations"].sort_values("n_iterations")
-    qupid_t = it[it["method"] == "qupid"].set_index("n_iterations")["elapsed_sec"]
-    naive_t = it[it["method"] == "naive_loop"].set_index("n_iterations")["elapsed_sec"]
-
-    shared_k = sorted(set(qupid_t.index) & set(naive_t.index))
-    if not shared_k:
-        print("  (no shared k values for speedup plot — skipped)")
-        return
-
-    speedups = [naive_t[k] / qupid_t[k] for k in shared_k]
+    it = df[df["experiment"] == "iterations"]
+    datasets = sorted(it["dataset"].unique()) if "dataset" in it.columns else [None]
 
     fig, ax = plt.subplots(figsize=(6.0, 4.2))
-    ax.plot(
-        shared_k,
-        speedups,
-        marker="o",
-        color=PALETTE["qupid"],
-        linewidth=2,
-        markersize=6,
-    )
-    ax.axhline(1.0, color="gray", linestyle="--", linewidth=1, alpha=0.6)
 
-    n_cases = int(it[it["method"] == "qupid"]["n_cases"].iloc[0])
-    n_bg = int(it[it["method"] == "qupid"]["n_controls"].iloc[0])
+    for i, ds in enumerate(datasets):
+        it_ds = it[it["dataset"] == ds] if ds is not None else it
+        qupid_t = it_ds[it_ds["method"] == "qupid"].set_index("n_iterations")[
+            "elapsed_sec"
+        ]
+        naive_t = it_ds[it_ds["method"] == "naive_loop"].set_index("n_iterations")[
+            "elapsed_sec"
+        ]
+
+        shared_k = sorted(set(qupid_t.index) & set(naive_t.index))
+        if not shared_k:
+            continue
+
+        speedups = [naive_t[k] / qupid_t[k] for k in shared_k]
+        label = ds if ds is not None else "qupid"
+        ax.plot(
+            shared_k,
+            speedups,
+            marker="o",
+            color=PALETTE["qupid"],
+            linestyle=DATASET_LINESTYLES[i % len(DATASET_LINESTYLES)],
+            linewidth=2,
+            markersize=6,
+            label=label,
+        )
+
+    ax.axhline(1.0, color="gray", linestyle="--", linewidth=1, alpha=0.6)
     ax.set_xscale("log")
     ax.set_xlabel("Number of matchings (k)")
     ax.set_ylabel("Speedup factor over naive")
-    ax.set_title(
-        f"Qupid speedup over naive multi-matching\n({n_cases} cases, {n_bg} controls)",
-        fontsize=10,
-    )
-    ax.grid(True, which="both", alpha=0.3)
+    ax.set_title("Qupid speedup over naive multi-matching", fontsize=10)
+    if len(datasets) > 1:
+        ax.legend(frameon=True, fontsize=9)
+    ax.grid(True, alpha=0.3)
     fig.tight_layout()
-    fig.savefig(out / "fig_speedup_vs_iterations.png", dpi=200, bbox_inches="tight")
-    fig.savefig(out / "fig_speedup_vs_iterations.pdf", bbox_inches="tight")
+    for fmt in ("png", "pdf"):
+        fig.savefig(
+            out / f"fig_speedup_vs_iterations.{fmt}", dpi=200, bbox_inches="tight"
+        )
     plt.close(fig)
-    print(f"  fig_speedup_vs_iterations.{{png,pdf}}")
+    print("  fig_speedup_vs_iterations.{png,pdf}")
 
 
 def main() -> None:
-    p = argparse.ArgumentParser()
+    p = argparse.ArgumentParser(description=__doc__)
     p.add_argument(
         "--results",
         default="benchmark_agp/benchmark_results.tsv",
         type=Path,
-        help="Path to benchmark_results.tsv",
     )
-    p.add_argument(
-        "--output-dir",
-        default=None,
-        type=Path,
-        help="Output directory (defaults to same dir as --results)",
-    )
+    p.add_argument("--output-dir", default=None, type=Path)
     args = p.parse_args()
 
     out = args.output_dir or args.results.parent
     out.mkdir(parents=True, exist_ok=True)
 
     df = pd.read_csv(args.results, sep="\t")
+    if "dataset" not in df.columns:
+        df.insert(0, "dataset", args.results.parent.name)
     print(f"Loaded {len(df)} rows from {args.results}")
+    print(f"Datasets: {sorted(df['dataset'].unique())}")
     print(f"Writing figures to {out}/")
 
     plot_combined(df, out)
