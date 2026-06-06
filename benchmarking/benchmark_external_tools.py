@@ -8,6 +8,7 @@ Tools benchmarked (all on the same AGP IBD cohort, categorical matching):
   - qupid       : match_by_multiple + create_matched_pairs(k)  [Python]
   - MatchIt     : matchit(..., method='nearest', exact=...) looped k times  [R/subprocess]
   - R Matching  : Matching::Match(..., exact=...) looped k times  [R/subprocess]
+  - CEM         : cem::cem(...) looped k times; set CEM_RSCRIPT  [R/subprocess]
   - miMatch     : if importable; otherwise skipped with a note  [Python]
 
 AGP metadata lives on barnacle. Set AGP_METADATA env variable or pass --metadata:
@@ -77,13 +78,15 @@ PALETTE = {
     "qupid": "#0077BB",
     "MatchIt": "#EE7733",
     "R Matching": "#009988",
+    "CEM": "#CC3311",
     "miMatch": "#9467bd",
 }
 LINESTYLES = {
     "qupid": "-",
     "MatchIt": "--",
     "R Matching": "-.",
-    "miMatch": ":",
+    "CEM": ":",
+    "miMatch": (0, (1, 1)),
 }
 
 plt.rcParams.update(
@@ -404,6 +407,83 @@ def time_r_matching(
 
 
 # ---------------------------------------------------------------------------
+# CEM (Coarsened Exact Matching) timing — via R subprocess
+# ---------------------------------------------------------------------------
+#
+# Uses the original `cem` package (Iacus, King & Porro), not MatchIt's
+# method="cem" — the latter errors on all-categorical covariate sets in
+# MatchIt 4.7.x ("cutpoints must be ... for each numeric variable"). The cem
+# package only ships a conda build for R<=4.3, so it lives in its own `r-cem`
+# env; point CEM_RSCRIPT at that env's Rscript (falls back to PATH "Rscript").
+# Factor covariates are matched exactly (no coarsening needed).
+CEM_RSCRIPT = os.environ.get("CEM_RSCRIPT", "Rscript")
+
+CEM_R_TEMPLATE = """\
+suppressPackageStartupMessages(library(cem))
+
+focus      <- read.csv("{focus_path}", colClasses="character")
+background <- read.csv("{background_path}", colClasses="character")
+focus$group      <- 1L
+background$group  <- 0L
+df <- rbind(focus, background)
+
+cats <- strsplit("{cats}", ",")[[1]]
+for (c in cats) df[[c]] <- as.factor(df[[c]])
+
+t_total <- 0
+for (i in seq_len({k})) {{
+    t0 <- proc.time()["elapsed"]
+    m <- cem(treatment="group", data=df, drop=NULL, keep.all=FALSE, verbose=0)
+    t_total <- t_total + (proc.time()["elapsed"] - t0)
+}}
+cat(t_total, "\\n")
+"""
+
+
+def time_cem(
+    focus: pd.DataFrame,
+    background: pd.DataFrame,
+    k: int,
+    n_repeat: int = N_REPEAT,
+) -> float | None:
+    if not shutil.which(CEM_RSCRIPT):
+        return None
+
+    cats = AGP_DISCRETE_CATS + list(AGP_NUMERIC_TOLS.keys())
+    times = []
+    with tempfile.TemporaryDirectory() as tmp:
+        fp = Path(tmp) / "focus.csv"
+        bp = Path(tmp) / "background.csv"
+        focus[cats].to_csv(fp, index=False)
+        background[cats].to_csv(bp, index=False)
+
+        script = CEM_R_TEMPLATE.format(
+            focus_path=fp,
+            background_path=bp,
+            k=k,
+            cats=",".join(cats),
+        )
+        rscript_path = Path(tmp) / "cem_timing.R"
+        rscript_path.write_text(script)
+
+        for _ in range(n_repeat):
+            result = subprocess.run(
+                [CEM_RSCRIPT, str(rscript_path)],
+                capture_output=True,
+                text=True,
+                timeout=600,
+            )
+            if result.returncode != 0:
+                return None
+            try:
+                times.append(float(result.stdout.strip().split()[-1]))
+            except (ValueError, IndexError):
+                return None
+
+    return float(np.median(times))
+
+
+# ---------------------------------------------------------------------------
 # Results assembly
 # ---------------------------------------------------------------------------
 
@@ -437,6 +517,13 @@ def run_benchmarks(
             print(f"  RMatching={t:.3f}s", end="", flush=True)
         else:
             print("  RMatching=N/A", end="", flush=True)
+
+        t = time_cem(focus, background, k)
+        if t is not None:
+            rows.append({"tool": "CEM", "k": k, "elapsed_sec": t, "dataset": "AGP"})
+            print(f"  CEM={t:.3f}s", end="", flush=True)
+        else:
+            print("  CEM=N/A", end="", flush=True)
 
         t = time_mimatch(focus, background, k)
         if t is not None:

@@ -83,6 +83,7 @@ STYLE = {
     "qupid": {"color": "#0077BB", "ls": "-", "marker": "o"},
     "MatchIt": {"color": "#EE7733", "ls": "--", "marker": "s"},
     "R Matching": {"color": "#009988", "ls": "-.", "marker": "^"},
+    "CEM": {"color": "#CC3311", "ls": ":", "marker": "D"},
 }
 
 
@@ -96,7 +97,7 @@ def main():
     fig, ax = plt.subplots(1, 1, figsize=(w, h))
 
     df = pd.read_csv("benchmark_real/agp_external_results.tsv", sep="\t")
-    for tool in ["qupid", "MatchIt", "R Matching"]:
+    for tool in ["qupid", "MatchIt", "R Matching", "CEM"]:
         sub = df[df["tool"] == tool].sort_values("k")
         if sub.empty:
             continue
