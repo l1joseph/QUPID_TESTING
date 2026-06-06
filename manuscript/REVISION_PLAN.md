@@ -25,8 +25,8 @@
 **Done (barnacle2, commit dc37ab1 — awaiting push):**
 - [x] **Major A4** — verified empirically: MatchIt returns byte-identical matched sets across the loop; R `Matching` differed only with an artificial reshuffle that was subsequently removed; CEM is order-invariant in addition to deterministic and cannot produce k distinct matchings even with reshuffling. Manuscript Results paragraph and Figure 2 caption now state the verified determinism explicitly and flag the CEM order-invariance caveat ("its k-curve reflects k naive re-runs of the same underlying matching, analogous to the rebuild-every-iteration baseline in Fig. 1").
 
-**Optional (recommended, not done):**
-- [ ] **Recommended C2** — real-data PERMANOVA agreement check (single AGP DM point in Supp Fig 2)
+**Done (Recommended, 2026-06-06):**
+- [x] **Recommended C2** — real-data PERMANOVA agreement check. Empirically measured pseudo-F agreement of 4.72 × 10<sup>−14</sup> on a 500-sample Bray-Curtis distance matrix subsampled from THDMI (well below the 10<sup>−13</sup> threshold). Methods now state explicitly that *all* real-data PERMANOVA results in the paper (AGP Bray-Curtis, HMP2 and THDMI unweighted UniFrac) were computed with the vectorized implementation, with Supp Fig 2 isolating the per-call speedup on synthetic matrices to control for cohort-specific structure. The Supp Fig 2 caption also cites the real-data agreement point.
 
 ## Status update (2026-06-06)
 
