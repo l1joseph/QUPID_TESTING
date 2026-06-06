@@ -4,16 +4,13 @@ benchmark_external_tools.py
 
 Compare qupid against modern case-control matching tools on the AGP IBD cohort.
 
-Tools benchmarked:
-  - qupid    : match_by_multiple + create_matched_pairs(k)  [Python]
-  - MatchIt  : matchit(..., method='nearest', caliper=...) looped k times  [R/subprocess]
-  - miMatch  : if importable; otherwise skipped with a note  [Python]
+Tools benchmarked (all on the same AGP IBD cohort, categorical matching):
+  - qupid       : match_by_multiple + create_matched_pairs(k)  [Python]
+  - MatchIt     : matchit(..., method='nearest', exact=...) looped k times  [R/subprocess]
+  - R Matching  : Matching::Match(..., exact=...) looped k times  [R/subprocess]
+  - miMatch     : if importable; otherwise skipped with a note  [Python]
 
-Additionally loads Lucas Patel's pre-computed timing data (LNP_01) for historical
-context (SPSS FUZZY and R Matching on Wisconsin 16S; different dataset, different
-hardware — presented on a separate panel).
-
-AGP metadata lives on barnacle2. Set AGP_METADATA env variable or pass --metadata:
+AGP metadata lives on barnacle. Set AGP_METADATA env variable or pass --metadata:
   AGP_METADATA=/projects/tmi-public-results/22Oct2025/human-gut/WGS/10317/metadata-by-status/All_good.tsv
 
 Usage:
@@ -77,26 +74,16 @@ K_VALUES = [1, 5, 10, 25, 50, 100]
 N_REPEAT = 3  # median of N runs
 
 PALETTE = {
-    "qupid": "#1f77b4",
-    "MatchIt": "#2ca02c",
+    "qupid": "#0077BB",
+    "MatchIt": "#EE7733",
+    "R Matching": "#009988",
     "miMatch": "#9467bd",
-    "SPSS FUZZY": "#d62728",
-    "R Matching": "#ff7f0e",
 }
 LINESTYLES = {
     "qupid": "-",
     "MatchIt": "--",
-    "miMatch": "-.",
-    "SPSS FUZZY": ":",
-    "R Matching": "--",
-}
-
-# Lucas's pre-computed results (LNP_01_Runtime_Analysis.ipynb)
-# Dataset: Wisconsin 16S dementia-AD, sex + marsage ±4.5 yr, ~75 cases
-LUCAS_DATA = {
-    "SPSS FUZZY": {1: None, 10: 11.75, 100: 498.6, 1000: 39654.0},
-    "R Matching": {10: 0.112, 100: 1.162, 1000: 11.84, 10000: 113.7},
-    "qupid (Lucas)": {10: 0.015, 100: 0.069, 1000: 0.68, 10000: 6.48, 100000: 63.91},
+    "R Matching": "-.",
+    "miMatch": ":",
 }
 
 plt.rcParams.update(
@@ -341,6 +328,82 @@ def time_mimatch(
 
 
 # ---------------------------------------------------------------------------
+# R Matching (Sekhon `Matching` package) timing — via R subprocess
+# ---------------------------------------------------------------------------
+#
+# Replicates Patel et al.'s perform_matching.R: Matching::Match looped k times
+# with reshuffling. The AGP covariates are all categorical, so every covariate
+# is integer-encoded and matched exactly (exact=TRUE, no caliper).
+RMATCHING_R_TEMPLATE = """\
+suppressPackageStartupMessages(library(Matching))
+
+focus      <- read.csv("{focus_path}", colClasses="character")
+background <- read.csv("{background_path}", colClasses="character")
+focus$group      <- 1L
+background$group  <- 0L
+df <- rbind(focus, background)
+
+cats <- strsplit("{cats}", ",")[[1]]
+Xmat <- sapply(cats, function(cc) as.integer(as.factor(df[[cc]])))
+Xmat <- matrix(as.numeric(Xmat), nrow=nrow(df))
+Tr <- df$group
+
+t_total <- 0
+for (i in seq_len({k})) {{
+    ord <- sample(nrow(df))
+    t0 <- proc.time()["elapsed"]
+    m <- Match(Tr=Tr[ord], X=Xmat[ord, , drop=FALSE], M=1,
+               replace=FALSE, ties=FALSE, exact=rep(TRUE, length(cats)))
+    t_total <- t_total + (proc.time()["elapsed"] - t0)
+}}
+cat(t_total, "\\n")
+"""
+
+
+def time_r_matching(
+    focus: pd.DataFrame,
+    background: pd.DataFrame,
+    k: int,
+    n_repeat: int = N_REPEAT,
+) -> float | None:
+    if not shutil.which("Rscript"):
+        return None
+
+    cats = AGP_DISCRETE_CATS + list(AGP_NUMERIC_TOLS.keys())
+    times = []
+    with tempfile.TemporaryDirectory() as tmp:
+        fp = Path(tmp) / "focus.csv"
+        bp = Path(tmp) / "background.csv"
+        focus[cats].to_csv(fp, index=False)
+        background[cats].to_csv(bp, index=False)
+
+        script = RMATCHING_R_TEMPLATE.format(
+            focus_path=fp,
+            background_path=bp,
+            k=k,
+            cats=",".join(cats),
+        )
+        rscript_path = Path(tmp) / "rmatching_timing.R"
+        rscript_path.write_text(script)
+
+        for _ in range(n_repeat):
+            result = subprocess.run(
+                ["Rscript", str(rscript_path)],
+                capture_output=True,
+                text=True,
+                timeout=600,
+            )
+            if result.returncode != 0:
+                return None
+            try:
+                times.append(float(result.stdout.strip().split()[-1]))
+            except (ValueError, IndexError):
+                return None
+
+    return float(np.median(times))
+
+
+# ---------------------------------------------------------------------------
 # Results assembly
 # ---------------------------------------------------------------------------
 
@@ -366,6 +429,15 @@ def run_benchmarks(
         else:
             print("  MatchIt=N/A", end="", flush=True)
 
+        t = time_r_matching(focus, background, k)
+        if t is not None:
+            rows.append(
+                {"tool": "R Matching", "k": k, "elapsed_sec": t, "dataset": "AGP"}
+            )
+            print(f"  RMatching={t:.3f}s", end="", flush=True)
+        else:
+            print("  RMatching=N/A", end="", flush=True)
+
         t = time_mimatch(focus, background, k)
         if t is not None:
             rows.append({"tool": "miMatch", "k": k, "elapsed_sec": t, "dataset": "AGP"})
@@ -384,15 +456,16 @@ def run_benchmarks(
 
 
 def plot(agp_df: pd.DataFrame, out: Path) -> None:
-    sns.set_style("whitegrid")
-    fig, axes = plt.subplots(1, 2, figsize=(12.0, 4.5))
+    """Quick single-panel runtime figure (qupid vs external tools on AGP).
 
-    # ── Panel a: new benchmarks on AGP ────────────────────────────────────
-    ax = axes[0]
+    The publication figure is produced by figures/fig_runtime_external.py; this
+    is a fast sanity-check plot written alongside the benchmark run.
+    """
+    sns.set_style("whitegrid")
+    fig, ax = plt.subplots(1, 1, figsize=(6.0, 4.5))
+
     for tool in agp_df["tool"].unique():
         sub = agp_df[agp_df["tool"] == tool].sort_values("k")
-        color = PALETTE.get(tool, "#333333")
-        ls = LINESTYLES.get(tool, "-")
         ax.plot(
             sub["k"],
             sub["elapsed_sec"],
@@ -400,50 +473,14 @@ def plot(agp_df: pd.DataFrame, out: Path) -> None:
             linewidth=2,
             markersize=6,
             label=tool,
-            color=color,
-            linestyle=ls,
+            color=PALETTE.get(tool, "#333333"),
+            linestyle=LINESTYLES.get(tool, "-"),
         )
     ax.set_xscale("log")
     ax.set_yscale("log")
     ax.set_xlabel("Number of matchings (k)")
     ax.set_ylabel("Wall-clock time (s)")
-    ax.set_title(
-        "a. Runtime vs. k — modern tools\n(AGP IBD cohort, sex + age_cat + bmi_cat)",
-        fontsize=10,
-    )
-    ax.legend(frameon=True, fontsize=9)
-    ax.grid(True, which="both", alpha=0.3)
-
-    # ── Panel b: Lucas's historical benchmarks ────────────────────────────
-    ax = axes[1]
-    lucas_palette = {
-        "SPSS FUZZY": PALETTE["SPSS FUZZY"],
-        "R Matching": PALETTE["R Matching"],
-        "qupid (Lucas)": PALETTE["qupid"],
-    }
-    lucas_ls = {"SPSS FUZZY": ":", "R Matching": "--", "qupid (Lucas)": "-"}
-    for tool, data in LUCAS_DATA.items():
-        ks = sorted(k for k, v in data.items() if v is not None)
-        ts = [data[k] for k in ks]
-        ax.plot(
-            ks,
-            ts,
-            marker="o",
-            linewidth=2,
-            markersize=6,
-            label=tool,
-            color=lucas_palette.get(tool, "#333333"),
-            linestyle=lucas_ls.get(tool, "-"),
-        )
-    ax.set_xscale("log")
-    ax.set_yscale("log")
-    ax.set_xlabel("Number of matchings (k)")
-    ax.set_ylabel("Wall-clock time (s)")
-    ax.set_title(
-        "b. Runtime vs. k — historical benchmarks\n"
-        "(Wisconsin 16S, sex + age ±4.5 yr; Patel et al.)",
-        fontsize=10,
-    )
+    ax.set_title("Runtime vs. k — modern tools\n(AGP IBD cohort, sex + age_cat + bmi_cat)")
     ax.legend(frameon=True, fontsize=9)
     ax.grid(True, which="both", alpha=0.3)
 

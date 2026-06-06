@@ -63,7 +63,9 @@ def make_random_dm(n: int, seed: int) -> tuple[np.ndarray, np.ndarray, DistanceM
     dm_arr = np.triu(raw, 1) + np.triu(raw, 1).T
     ids = [f"s{i}" for i in range(n)]
     is_case = np.array([True] * (n // 2) + [False] * (n - n // 2))
-    grouping = pd.Series(["case"] * (n // 2) + ["control"] * (n - n // 2), index=ids)
+    grouping = pd.Series(
+        ["case"] * (n // 2) + ["control"] * (n - n // 2), index=ids, name="group"
+    )
     dm = DistanceMatrix(dm_arr, ids=ids)
     return dm_arr, is_case, dm, grouping
 
@@ -125,8 +127,8 @@ def plot(df: pd.DataFrame, out: Path) -> None:
     ax = axes[0]
     sub = df[df["permutations"] == 999]
     for method, label, color in [
-        ("skbio", "scikit-bio (current)", PALETTE["skbio"]),
-        ("fast", "Vectorized (this work)", PALETTE["fast"]),
+        ("skbio", "scikit-bio", PALETTE["skbio"]),
+        ("fast", "Vectorized", PALETTE["fast"]),
     ]:
         s = sub[sub["method"] == method].sort_values("n_samples")
         ax.plot(
