@@ -289,6 +289,23 @@ def time_matchit(
 # ---------------------------------------------------------------------------
 # miMatch timing (Python, if available)
 # ---------------------------------------------------------------------------
+#
+# NOTE: miMatch (Ye et al., Gut Microbes 2024; github.com/dfwlab/miMatch) is
+# intentionally NOT benchmarked on this runtime-vs-k panel, and the import
+# below is expected to fail (-> N/A) on any standard install. It is a
+# fundamentally different tool and a fair side-by-side comparison is not
+# possible here:
+#   1. It matches on *microbial metabolic background* (PCs of inferred
+#      metabolic pathway profiles), not host covariates (sex/age_cat/bmi_cat),
+#      so it would require a HUMAnN-style pathway table the AGP cohort here
+#      does not carry.
+#   2. It produces a *single* deterministic matched cohort, so there is no
+#      "k matchings" axis to place it on against qupid/MatchIt.
+#   3. It ships as a config.ini-driven `miMatch.py` CLI script, not an
+#      importable module with the `match()` API assumed below.
+# The manuscript frames miMatch accordingly as an indirect, microbiome-
+# intrinsic approach distinct from direct host-covariate matching. This stub
+# is kept only so the tool degrades gracefully to N/A rather than erroring.
 
 
 def time_mimatch(
