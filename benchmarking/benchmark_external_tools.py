@@ -58,8 +58,20 @@ AGP_METADATA_DEFAULT = (
 AGP_CASE_COL = "ibd"
 AGP_CASE_VAL = "Diagnosed by a medical professional (doctor, physician assistant)"
 AGP_CTRL_VAL = "I do not have this condition"
-AGP_DISCRETE_CATS = ["sex"]
-AGP_NUMERIC_TOLS = {"age_years": 10.0}
+# The public tmi-public-results AGP metadata redacts numeric age_years
+# ("not provided"/"not collected"), so matching follows the published
+# qupid_agp analysis: categorical sex + age_cat + bmi_cat, no numeric tolerance.
+AGP_DISCRETE_CATS = ["sex", "age_cat", "bmi_cat"]
+AGP_NUMERIC_TOLS: dict[str, float] = {}
+# AGP missingness sentinels to drop from categorical matching columns
+AGP_JUNK_VALUES = {
+    "not provided",
+    "not collected",
+    "not applicable",
+    "unspecified",
+    "nan",
+    "",
+}
 
 K_VALUES = [1, 5, 10, 25, 50, 100]
 N_REPEAT = 3  # median of N runs
@@ -114,6 +126,24 @@ def load_agp(metadata_path: Path) -> tuple[pd.DataFrame, pd.DataFrame]:
     keep_cols = AGP_DISCRETE_CATS + list(AGP_NUMERIC_TOLS.keys())
     focus = focus.dropna(subset=keep_cols)
     background = background.dropna(subset=keep_cols)
+
+    # Drop AGP missingness sentinels (e.g. "not provided") from categorical cols
+    def _drop_junk(df: pd.DataFrame) -> pd.DataFrame:
+        for col in AGP_DISCRETE_CATS:
+            mask = df[col].astype(str).str.strip().str.lower().isin(AGP_JUNK_VALUES)
+            df = df[~mask]
+        return df
+
+    focus = _drop_junk(focus)
+    background = _drop_junk(background)
+
+    # Coerce any numeric matching columns to float (continuous covariates)
+    for col in AGP_NUMERIC_TOLS:
+        focus[col] = pd.to_numeric(focus[col], errors="coerce")
+        background[col] = pd.to_numeric(background[col], errors="coerce")
+        focus = focus.dropna(subset=[col])
+        background = background.dropna(subset=[col])
+
     return focus, background
 
 
@@ -173,30 +203,37 @@ def time_qupid(
 # MatchIt timing (via R subprocess)
 # ---------------------------------------------------------------------------
 
+# MatchIt analogue of qupid's categorical matching: 1:1 nearest matching
+# constrained to exact strata on all categorical covariates (sex, age_cat,
+# bmi_cat), looped k times. A logistic propensity score is fit for the
+# nearest-neighbour ordering within each exact stratum.
 MATCHIT_R_TEMPLATE = """\
 suppressPackageStartupMessages({{
     library(MatchIt)
     library(data.table)
 }})
 
-focus    <- fread("{focus_path}", data.table=FALSE)
-background <- fread("{background_path}", data.table=FALSE)
-focus$group    <- 1L
-background$group <- 0L
+focus      <- fread("{focus_path}", data.table=FALSE, colClasses="character")
+background <- fread("{background_path}", data.table=FALSE, colClasses="character")
+focus$group      <- 1L
+background$group  <- 0L
 df <- rbind(focus, background)
+
+cats <- strsplit("{cats}", ",")[[1]]
+for (c in cats) df[[c]] <- as.factor(df[[c]])
+form <- as.formula(paste("group ~", paste(cats, collapse=" + ")))
 
 t_total <- 0
 for (i in seq_len({k})) {{
     t0 <- proc.time()["elapsed"]
     m <- matchit(
-        group ~ sex + age_years,
-        data       = df,
-        method     = "nearest",
-        distance   = "mahalanobis",
-        exact      = ~ sex,
-        caliper    = c(age_years = {age_tol}),
-        ratio      = 1,
-        replace    = FALSE
+        form,
+        data     = df,
+        method   = "nearest",
+        distance = "glm",
+        exact    = cats,
+        ratio    = 1,
+        replace  = FALSE
     )
     t_total <- t_total + (proc.time()["elapsed"] - t0)
 }}
@@ -226,7 +263,7 @@ def time_matchit(
             focus_path=fp,
             background_path=bp,
             k=k,
-            age_tol=AGP_NUMERIC_TOLS["age_years"],
+            cats=",".join(AGP_DISCRETE_CATS + list(AGP_NUMERIC_TOLS.keys())),
         )
         rscript_path = Path(tmp) / "matchit_timing.R"
         rscript_path.write_text(script)
@@ -354,7 +391,7 @@ def plot(agp_df: pd.DataFrame, out: Path) -> None:
     ax.set_xlabel("Number of matchings (k)")
     ax.set_ylabel("Wall-clock time (s)")
     ax.set_title(
-        "a. Runtime vs. k — modern tools\n(AGP IBD cohort, sex + age ±10 yr)",
+        "a. Runtime vs. k — modern tools\n(AGP IBD cohort, sex + age_cat + bmi_cat)",
         fontsize=10,
     )
     ax.legend(frameon=True, fontsize=9)
