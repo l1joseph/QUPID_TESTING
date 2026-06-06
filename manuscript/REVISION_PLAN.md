@@ -28,6 +28,50 @@
 **Done (Recommended, 2026-06-06):**
 - [x] **Recommended C2** — real-data PERMANOVA agreement check. Empirically measured pseudo-F agreement of 4.72 × 10<sup>−14</sup> on a 500-sample Bray-Curtis distance matrix subsampled from THDMI (well below the 10<sup>−13</sup> threshold). Methods now state explicitly that *all* real-data PERMANOVA results in the paper (AGP Bray-Curtis, HMP2 and THDMI unweighted UniFrac) were computed with the vectorized implementation, with Supp Fig 2 isolating the per-call speedup on synthetic matrices to control for cohort-specific structure. The Supp Fig 2 caption also cites the real-data agreement point.
 
+---
+
+## Round 2 — Minor revisions (2026-06-06 review)
+
+After the round-1 revisions landed, a second peer-review pass surfaced **zero Major
+items** but eight cosmetic Minors. None require new computation or barnacle work;
+all are local manuscript edits.
+
+### Group 1 — Trivial text edits (~5 min total)
+
+- [x] **M1: Verb consistency** — line 56 "amplified" → "increased"; also softened Figure 3 caption title from "amplifies and stabilizes" → "increases and stabilizes" for consistency. Kept "amplification" as the category-label noun on line 83 (fine in that role).
+- [x] **M3: Abstract MatchIt anchor** — appended "(3.8× vs. MatchIt, the most widely used)" after the 2.9–4.1× range.
+- [x] **M4: Supp Table 1 CSV path** — changed to `manuscript/tables/HMP2_supplementary_table1.csv`.
+
+### Group 2 — Methods clarifications (~10 min total)
+
+- [x] **M2: AGP cohort attrition** — added one-sentence note in Runtime benchmarks Methods subsection: "The external-tool benchmark cohort is slightly smaller than the analysis cohort (159 vs. 169 cases; 4,400 vs. 4,672 controls) because AGP missingness sentinels were dropped from the categorical matching covariates prior to benchmarking."
+- [x] **M5: THDMI sample-size attrition** — added parallel sentence to existing HMP2 note: "Similarly, the THDMI 563-pair count reflects the constraint that 495 of 1,058 unhealthy cases and 355 of 918 healthy controls had no valid match under the (sex, THDMI cohort, BMI category, cosmetics use, host age ± 5) criteria simultaneously."
+
+### Group 3 — Verification + structural (~15 min)
+
+- [x] **M6: PERMANOVA verification at larger n** — re-ran at n = 1,126 (THDMI matched-cohort size). Measured absolute difference 6.06 × 10⁻¹³ (relative 9.07 × 10⁻¹³, 12 significant digits of agreement). This is the expected machine-precision floor for ~n³ matrix-multiplication operations at this scale; cited both n = 500 (4.72 × 10⁻¹⁴) and n = 1,126 (6.06 × 10⁻¹³) measurements in Methods and Supp Fig 2 caption, with a brief explanation of the n-scaling.
+- [ ] **M7: Reference style** — deferred to submission copy-edit; cosmetic only.
+- [ ] **M8: Methods subsection merge** — deferred; only worth doing if word-count pressure at submission.
+
+### Execution order
+
+1. M1, M3, M4 — three single-line edits to `manuscript.md`
+2. M6 — re-run PERMANOVA verification at n = 1,126; update Methods + Supp Fig 2 caption
+3. M2, M5 — add Methods clarification sentences
+4. M8 — merge Methods subsections (optional; only if length pressure at submission)
+5. M7 — defer to journal copy-edit (cosmetic only)
+6. Sync root manuscript.md, commit, push
+
+### Verification checklist (Round 2)
+
+- [ ] No residual "amplified" verbs in Results/Discussion outside the noun "amplification" as a category label
+- [ ] Abstract reads as "2.9–4.1× at k = 100 (3.8× vs. MatchIt, the most widely used)"
+- [ ] Supp Table 1 caption cites the repository-relative path
+- [ ] Methods explain both AGP (169 → 159) and THDMI (918 → 563) attrition
+- [ ] PERMANOVA verification cites the larger-n measurement
+- [ ] Round 1 verification checklist still passes
+- [ ] `grep -n "Fig\." manuscript.md` shows unchanged figure reference structure
+
 ## Status update (2026-06-06)
 
 After this plan was first drafted, two commits (3837552, 2d97fff) updated the
