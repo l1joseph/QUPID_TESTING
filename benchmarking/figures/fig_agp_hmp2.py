@@ -396,14 +396,14 @@ def main():
     out.mkdir(exist_ok=True)
     for fmt in NATURE_FORMATS:
         fig.savefig(
-            out / f"fig2_agp_hmp2.{fmt}",
+            out / f"fig_agp_hmp2.{fmt}",
             dpi=NATURE_DPI,
             bbox_inches="tight",
             pad_inches=0.02,
             format=fmt,
             facecolor="white",
         )
-        print(f"Saved: figures/fig2_agp_hmp2.{fmt}")
+        print(f"Saved: figures/fig_agp_hmp2.{fmt}")
     plt.close(fig)
 
 

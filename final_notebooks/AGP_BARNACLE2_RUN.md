@@ -36,7 +36,7 @@ No environment variables need to be set if the paths above are correct.
 
 The notebook writes its output to `final_notebooks/agp_ccm_analysis_controlled/`
 (relative to where nbconvert runs).  Copy the CSVs to the project root's
-`agp_ccm_analysis_controlled/` directory so that `benchmarking/figures/fig2_agp_hmp2.py`
+`agp_ccm_analysis_controlled/` directory so that `benchmarking/figures/fig_agp_hmp2.py`
 can find them:
 
 ```bash
@@ -61,7 +61,7 @@ Re-render Figure 2 from the `benchmarking/` directory:
 ```bash
 conda activate qiime2-shotgun-2024.2
 cd benchmarking
-python figures/fig2_agp_hmp2.py
+python figures/fig_agp_hmp2.py
 ```
 
 Then update the AGP numbers in `manuscript.md` to match the regenerated CSV values

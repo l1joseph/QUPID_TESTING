@@ -335,14 +335,14 @@ def main():
     out.mkdir(exist_ok=True)
     for fmt in NATURE_FORMATS:
         fig.savefig(
-            out / f"fig3_thdmi.{fmt}",
+            out / f"fig_thdmi.{fmt}",
             dpi=NATURE_DPI,
             bbox_inches="tight",
             pad_inches=0.02,
             format=fmt,
             facecolor="white",
         )
-        print(f"Saved: figures/fig3_thdmi.{fmt}")
+        print(f"Saved: figures/fig_thdmi.{fmt}")
     plt.close(fig)
 
 

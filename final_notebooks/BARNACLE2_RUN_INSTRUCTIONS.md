@@ -59,8 +59,8 @@ The `*_cc_pre_all.csv` and `*_cc_post_all.csv` files are needed for Figure 2 pan
 
 Re-run the figure scripts from `benchmarking/`:
 ```bash
-python figures/fig2_agp_hmp2.py
-python figures/fig3_thdmi.py
+python figures/fig_agp_hmp2.py
+python figures/fig_thdmi.py
 ```
 
 Then update the manuscript significance counts to match the new FDR-corrected numbers.
