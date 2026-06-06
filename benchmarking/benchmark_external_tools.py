@@ -189,14 +189,32 @@ def time_qupid(
     return float(np.median(times))
 
 
+# ===========================================================================
+# Benchmark framing — what "k matchings" means for each tool
+# ===========================================================================
+#
+# qupid natively produces k *distinct* maximum-cardinality matchings (its whole
+# purpose: characterizing the effect-size distribution) by re-randomizing
+# augmenting paths on a bipartite graph that is built ONCE. The external tools
+# have no multi-matching capability, so the operationally relevant comparison is
+# "qupid's multi-matching workflow vs. k repeated single-matching calls from
+# each external tool" — a researcher who needs k matched sets must invoke those
+# tools k times regardless. We therefore loop each external tool k times in its
+# standard single-matching configuration WITHOUT re-seeding (MatchIt nearest,
+# Matching::Match, and cem are all deterministic in this configuration, so the k
+# calls return the same set; this does not affect the cost comparison, which is
+# about whether graph/stratification construction is amortized — qupid — or paid
+# every iteration — all external tools). Verified empirically that each external
+# tool is deterministic here; see git history "Verify MatchIt loop ...".
+#
 # ---------------------------------------------------------------------------
 # MatchIt timing (via R subprocess)
 # ---------------------------------------------------------------------------
-
+#
 # MatchIt analogue of qupid's categorical matching: 1:1 nearest matching
 # constrained to exact strata on all categorical covariates (sex, age_cat,
-# bmi_cat), looped k times. A logistic propensity score is fit for the
-# nearest-neighbour ordering within each exact stratum.
+# bmi_cat), looped k times (deterministic — see framing note above). A logistic
+# propensity score is fit for the nearest-neighbour ordering within each stratum.
 MATCHIT_R_TEMPLATE = """\
 suppressPackageStartupMessages({{
     library(MatchIt)
@@ -334,9 +352,11 @@ def time_mimatch(
 # R Matching (Sekhon `Matching` package) timing — via R subprocess
 # ---------------------------------------------------------------------------
 #
-# Replicates Patel et al.'s perform_matching.R: Matching::Match looped k times
-# with reshuffling. The AGP covariates are all categorical, so every covariate
-# is integer-encoded and matched exactly (exact=TRUE, no caliper).
+# Based on Patel et al.'s perform_matching.R: Matching::Match looped k times.
+# The AGP covariates are all categorical, so every covariate is integer-encoded
+# and matched exactly (exact=TRUE, no caliper). Looped without re-seeding (so
+# deterministic) per the framing note above — each iteration is one standard
+# single-matching call, matching how MatchIt/CEM are timed.
 RMATCHING_R_TEMPLATE = """\
 suppressPackageStartupMessages(library(Matching))
 
@@ -353,9 +373,8 @@ Tr <- df$group
 
 t_total <- 0
 for (i in seq_len({k})) {{
-    ord <- sample(nrow(df))
     t0 <- proc.time()["elapsed"]
-    m <- Match(Tr=Tr[ord], X=Xmat[ord, , drop=FALSE], M=1,
+    m <- Match(Tr=Tr, X=Xmat, M=1,
                replace=FALSE, ties=FALSE, exact=rep(TRUE, length(cats)))
     t_total <- t_total + (proc.time()["elapsed"] - t0)
 }}
@@ -416,6 +435,15 @@ def time_r_matching(
 # package only ships a conda build for R<=4.3, so it lives in its own `r-cem`
 # env; point CEM_RSCRIPT at that env's Rscript (falls back to PATH "Rscript").
 # Factor covariates are matched exactly (no coarsening needed).
+#
+# CAVEAT: cem produces a *single, deterministic, order-invariant* coarsened-
+# exact stratification (a weighted matched set, not k distinct 1:1 pairings).
+# It has no notion of k distinct matchings — verified that reshuffling rows
+# leaves its output identical. Its runtime-vs-k line therefore reflects the
+# naive cost of re-running cem k times (analogous to the rebuild-every-iteration
+# baseline in Fig. 1); a researcher would realistically run it once. It is kept
+# on the panel to show that even the fastest binning matcher pays its full cost
+# every iteration, but this single-set caveat should accompany the figure.
 CEM_RSCRIPT = os.environ.get("CEM_RSCRIPT", "Rscript")
 
 CEM_R_TEMPLATE = """\
