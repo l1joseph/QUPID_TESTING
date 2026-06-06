@@ -53,6 +53,117 @@ all are local manuscript edits.
 - [ ] **M7: Reference style** — deferred to submission copy-edit; cosmetic only.
 - [ ] **M8: Methods subsection merge** — deferred; only worth doing if word-count pressure at submission.
 
+---
+
+## Round 3 — Fresh peer-review feedback (2026-06-06)
+
+A "from fresh" peer-review pass (deliberately tougher, no prior-session anchoring)
+surfaced **4 Major** and **8 Minor** items. After review, **two of the Majors and three
+of the Minors can be disregarded or addressed with minimal effort**; the rest are
+worth fixing.
+
+### Disregard / minimal-address (with rationale)
+
+- **Major #3 — Cohort selection disclosure.** Reviewer asked for a paragraph
+  defending the AGP/HMP2/THDMI choice against post-hoc rationalization. These are
+  *standard reference cohorts* in microbiome research (largest citizen-science
+  cohort, gold-standard IBD multi-omics, recent multi-country diet study); the
+  critique applies to literally every multi-cohort microbiome paper. **Action:**
+  add one sentence in Methods Datasets noting "We selected these three cohorts to
+  span the range of microbiome-study designs..." — *no* full disclosure paragraph.
+- **Minor #4 — miMatch philosophical engagement.** We already cite miMatch [20] and
+  give a clear technical reason for excluding it from the wall-clock benchmark.
+  Adding a "miMatch's host-covariate critique" paragraph in Discussion would be
+  defensive overkill for a software paper. **Action:** disregard.
+- **Minor #6 — Causal-inference literature (King & Nielsen 2019, Iacus 2019).**
+  These are foundational for matching theory but this is a microbiome bioinformatics
+  paper, not a causal-inference paper. **Action:** disregard; the existing
+  matching-tool references [6, 24, 25] cover the practical landscape.
+
+### Address — claim-critical (Group A, ~30 min total)
+
+- [x] **R3-A1: Sampling-distribution framing + empirical characterization (Major #1).**
+  User chose the empirical approach over text-reframe. Wrote
+  `benchmarking/sampling_characterization.py`: on a small test bipartite graph
+  (5 cases × 8 controls; M = 165 distinct max-cardinality matchings enumerated
+  exhaustively), ran Qupid N = 100,000 times. **Results:** Qupid reached every
+  one of the 165 matchings (full coverage) but per-matching probabilities differed
+  from uniform (TV distance 0.189, KL divergence 0.113). Marginal pseudo-F
+  distribution is shape-preserved (mean shifts 7.1% from 1.83 to 1.70; SD nearly
+  identical 1.64 vs 1.61). Added as Supp Fig 3 with caption and Methods text
+  noting the sampling-vs-uniform distinction explicitly.
+
+- [SKIP — user kept current language] **R3-A2: THDMI circularity soften (Major #2).** The "without model specification"
+  framing oversells a result that follows by construction (matching on known
+  confounders attenuates the confounded effect). **Action:** in Results (line 73)
+  and Discussion (line 81), soften "without requiring any model specification or
+  covariate selection beyond the matching criteria" → "without a parametric
+  regression specification"; add one acknowledging sentence in Discussion that
+  matching on the THDMI primary paper's identified drivers is the standard CCM
+  approach when prior knowledge of confounders is available, and Qupid's
+  contribution is the distribution-over-matchings rather than the choice of
+  variables.
+
+- [x] **R3-A3: HMP2 CD-enrichment in Discussion + Conclusion (Major #4).** The Abstract
+  already flags the CD-enriched subset (Round 1 A2). The Discussion and Conclusion
+  still discuss HMP2 stabilization as a general result. **Action:** in Discussion
+  (line 81) add one explicit clause that the stabilization characterizes the
+  Crohn's-enriched matched subset; in the Conclusion (line 89) avoid the
+  unqualified "stabilizes" language. *Do not* re-run alternate-matching analyses —
+  the SD collapse is what it is and the Supp Table 2 disclosure is the right level
+  of self-scrutiny for a tool paper.
+
+### Address — publication polish (Group B, ~15 min total)
+
+- [x] **R3-B1: Baseline framing (Minor #1).** Lead with correctness over speedup —
+  Fig 1c (0/100 vs 100/100) before Fig 1b (12.5×). Reorder Results paragraph
+  starting line 32 to discuss the correctness advantage first, treat the 12.5×
+  internal speedup as a sanity-check comparison.
+- [x] **R3-B2: Single-matching disadvantage acknowledgment (Minor #2).** At k = 1
+  Qupid (0.36 s) is ~6× slower than R `Matching` (0.05 s). Add one parenthetical
+  sentence after line 46: "For single-matching workflows, R `Matching` and CEM
+  remain marginally faster than Qupid; Qupid's advantage is specific to the
+  multi-matching regime (k ≳ 10)."
+- [SKIP — user kept "negative control"] **R3-B3: "Negative control" rename (Minor #3).** Line 64 calls the random-draw
+  analysis a "negative control" but it has a non-zero expected effect. **Action:**
+  rename to "mechanical-floor analysis" or "control-pool-overlap decomposition" in
+  Results, Abstract, and any caption mentions.
+- [x] **R3-B5: Verify sex in THDMI matching list (Minor #5).** Reviewer flagged that
+  line 71 names sex as a matching variable but Khatib's primary-driver list does
+  not include sex. Check whether sex was an intentional addition (likely yes —
+  basic demographic balance) and add a clarifying half-sentence if so.
+- [x] **R3-B7: PERMANOVA validation on UniFrac (Minor #7).** Run a one-shot agreement
+  check on an HMP2 or THDMI unweighted UniFrac matrix to close the "validated on
+  Bray-Curtis only" gap. Expected: same agreement (pseudo-F is matrix-agnostic).
+  10-second script + one sentence update in Methods.
+- [x] **R3-B8: Discussion victory-lap relocation (Minor #8).** Move the
+  implementation-synthesis paragraph (line 87, the "These biological findings rest
+  on..." paragraph) to follow the regime-overview paragraph (line 81) rather than
+  the caveats paragraph (line 85), so the methodology summary doesn't interrupt
+  the biology → caveats → conclusion arc.
+
+### Execution order
+
+1. R3-A1, R3-A2, R3-A3 — three claim-level text adjustments
+2. R3-B5 — verify sex matching variable consistency
+3. R3-B7 — run UniFrac PERMANOVA verification (10-sec script)
+4. R3-B1, R3-B2, R3-B3, R3-B8 — text-only polish
+5. Sync root manuscript.md, commit, push
+
+### Verification checklist (Round 3)
+
+- [ ] No "distribution over the matching space" framing remains — all distribution
+      claims explicitly qualified as "under Qupid's sampler"
+- [ ] THDMI Discussion acknowledges matching on known confounders as standard CCM
+- [ ] HMP2 stabilization claim in Discussion + Conclusion mentions the CD-enriched
+      matched subset
+- [ ] Fig 1 narrative leads with correctness (panel c) before speedup (panel b)
+- [ ] One sentence acknowledging single-matching disadvantage
+- [ ] "Negative control" renamed throughout
+- [ ] PERMANOVA validation now cites both Bray-Curtis and UniFrac agreement
+- [ ] Discussion paragraph order: regimes → methods-synthesis → caveats → summary
+- [ ] All Round 1, 2, 3 checks still pass
+
 ### Execution order
 
 1. M1, M3, M4 — three single-line edits to `manuscript.md`
