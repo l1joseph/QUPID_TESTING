@@ -83,15 +83,21 @@ worth fixing.
 ### Address — claim-critical (Group A, ~30 min total)
 
 - [x] **R3-A1: Sampling-distribution framing + empirical characterization (Major #1).**
-  User chose the empirical approach over text-reframe. Wrote
-  `benchmarking/sampling_characterization.py`: on a small test bipartite graph
-  (5 cases × 8 controls; M = 165 distinct max-cardinality matchings enumerated
-  exhaustively), ran Qupid N = 100,000 times. **Results:** Qupid reached every
-  one of the 165 matchings (full coverage) but per-matching probabilities differed
-  from uniform (TV distance 0.189, KL divergence 0.113). Marginal pseudo-F
-  distribution is shape-preserved (mean shifts 7.1% from 1.83 to 1.70; SD nearly
-  identical 1.64 vs 1.61). Added as Supp Fig 3 with caption and Methods text
-  noting the sampling-vs-uniform distinction explicitly.
+  User chose the empirical approach over text-reframe. Initially ran on a single
+  small graph (5×8, M=165), then **extended in Round 4 to a multi-scale comparison
+  across three graphs** (small 5×8 / M=165 / N=100K; medium 7×12 / M=5,540 / N=1M;
+  large 9×16 / M=92,970 / N=3M) — spanning more than 2.7 orders of magnitude in
+  matching-space size. **Results across all three scales:**
+  - Full coverage of the matching space at every scale (all M matchings reached)
+  - TV stable at 0.15–0.20 (vs sampling-noise floors 0.020–0.088)
+  - KS distance on pseudo-F *decreases* with graph scale (0.053 → 0.024 → 0.022)
+  - SD of the marginal pseudo-F distribution preserved within 3% at every scale
+  - Absolute mean shift small (0.03–0.13) and bounded
+  Methods paragraph now describes the multi-scale result and concludes that "the
+  marginal pseudo-F distribution is stably preserved under that sampler at scales
+  spanning two-plus orders of magnitude in matching-space size — supporting the
+  regime-classification claims at the production cohort sizes used in this study"
+  — no remaining "demonstrated at small scale" caveat required.
 
 - [SKIP — user kept current language] **R3-A2: THDMI circularity soften (Major #2).** The "without model specification"
   framing oversells a result that follows by construction (matching on known
