@@ -1,9 +1,21 @@
 #!/usr/bin/env python3
 """
-fig_runtime_external — qupid vs. external matching tools on the AGP IBD cohort.
-Single-panel, Nature single column. Runtime vs. number of matchings (k) for
-qupid, MatchIt, and R Matching, all run on the same AGP IBD cohort
-(categorical sex + age_cat + bmi_cat).
+fig_runtime_external — qupid vs. external matching tools.
+
+Two-panel figure ported from Patel et al.'s LNP_01_Runtime_Analysis.ipynb.
+
+Panel (a): new AGP IBD benchmark. Qupid vs. four widely used host-covariate
+matching tools (MatchIt, R Matching, CEM, q2-matchmaker) under categorical
+matching (sex + age_cat + bmi_cat). Reads benchmark_real/agp_external_results.tsv.
+
+Panel (b): historical Wisconsin 16S dementia-AD benchmark from Patel et al.
+SPSS FUZZY, R Matching, and qupid timings at k ∈ {10, 100, 1000, 10000},
+sex + age ±4.5 yr. Hard-coded from LNP_01 so the figure is self-contained.
+
+Both panels share log-log axes for direct visual comparison of scale; SPSS
+FUZZY hitting ~40,000 s at k = 1,000 vs qupid at < 1 s is the headline
+order-of-magnitude gap motivating Qupid.
+
 Run from benchmarking/  (reads benchmark_real/agp_external_results.tsv).
 """
 import pathlib
@@ -11,19 +23,6 @@ import pathlib
 import matplotlib.pyplot as plt
 import pandas as pd
 import seaborn as sns
-
-# ── Palette ──────────────────────────────────────────────────────────────────
-PALETTE = [
-    "#332288",
-    "#88CCEE",
-    "#44AA99",
-    "#117733",
-    "#999933",
-    "#DDCC77",
-    "#CC6677",
-    "#882255",
-    "#AA4499",
-]
 
 # ── Nature RC ────────────────────────────────────────────────────────────────
 NATURE_WIDTHS = {"single": 3.50, "1.5col": 5.04, "double": 7.09}
@@ -78,48 +77,102 @@ NATURE_RC = {
 NATURE_FORMATS = ["pdf", "png"]
 NATURE_DPI = 450
 
-# ── Series styling (qupid blue; one distinct color per external tool) ────────
+# ── Per-tool styling (Paul Tol colorblind-safe palette) ──────────────────────
 STYLE = {
     "qupid": {"color": "#0077BB", "ls": "-", "marker": "o"},
     "MatchIt": {"color": "#EE7733", "ls": "--", "marker": "s"},
     "R Matching": {"color": "#009988", "ls": "-.", "marker": "^"},
     "CEM": {"color": "#CC3311", "ls": ":", "marker": "D"},
+    "q2-matchmaker": {"color": "#EE3377", "ls": (0, (3, 1, 1, 1)), "marker": "v"},
+    "SPSS FUZZY": {"color": "#CC3311", "ls": ":", "marker": "D"},
+}
+
+# ── Historical Wisconsin 16S benchmark from LNP_01_Runtime_Analysis.ipynb ────
+#    Patel et al., dementia-AD cohort, sex + age ±4.5 yr.
+HISTORICAL = {
+    "SPSS FUZZY": {10: 11.75, 100: 498.6, 1000: 39654.0},
+    "R Matching": {10: 0.112, 100: 1.162, 1000: 11.84, 10000: 113.7},
+    "qupid": {10: 0.015, 100: 0.069, 1000: 0.68, 10000: 6.48},
 }
 
 
-def main():
-    sns.set_theme(rc=NATURE_RC)
-    plt.rcParams.update(NATURE_RC)
-    plt.rcParams["axes.prop_cycle"] = plt.cycler(color=PALETTE)
-
-    w = NATURE_WIDTHS["single"]
-    h = min(w * 0.78, NATURE_MAX_H)
-    fig, ax = plt.subplots(1, 1, figsize=(w, h))
-
-    df = pd.read_csv("benchmark_real/agp_external_results.tsv", sep="\t")
-    for tool in ["qupid", "MatchIt", "R Matching", "CEM"]:
-        sub = df[df["tool"] == tool].sort_values("k")
-        if sub.empty:
+def _plot_panel(ax, sources, title):
+    """Plot one panel; `sources` is a list of (label, k_array, t_array)."""
+    for label, k_arr, t_arr in sources:
+        if not len(k_arr):
             continue
-        s = STYLE[tool]
+        s = STYLE[label]
         ax.plot(
-            sub["k"].values,
-            sub["elapsed_sec"].values,
+            k_arr,
+            t_arr,
             marker=s["marker"],
             markersize=3.5,
             linewidth=1.0,
             linestyle=s["ls"],
             color=s["color"],
-            label=tool,
+            label=label,
             clip_on=False,
         )
-
     ax.set_xscale("log")
     ax.set_yscale("log")
     ax.set_xlabel("Number of matchings ($k$)")
     ax.set_ylabel("Wall-clock time (s)")
-    ax.set_title("AGP IBD cohort\n(sex + age category + BMI category)")
+    ax.set_title(title)
     ax.legend(loc="upper left")
+
+
+def _add_panel_label(ax, label):
+    ax.text(
+        -0.16,
+        1.05,
+        label,
+        transform=ax.transAxes,
+        fontsize=8,
+        fontweight="bold",
+        va="bottom",
+        ha="left",
+    )
+
+
+def main():
+    sns.set_theme(rc=NATURE_RC)
+    plt.rcParams.update(NATURE_RC)
+
+    # Two-panel layout, Nature double-column width
+    w = NATURE_WIDTHS["double"]
+    h = w * 0.45
+    fig, (ax_a, ax_b) = plt.subplots(1, 2, figsize=(w, h))
+
+    # ── Panel a: new AGP IBD benchmark ───────────────────────────────────────
+    panel_a_sources = []
+    agp_tsv = pathlib.Path("benchmark_real/agp_external_results.tsv")
+    if agp_tsv.exists():
+        df = pd.read_csv(agp_tsv, sep="\t")
+        for tool in ["qupid", "MatchIt", "R Matching", "CEM", "q2-matchmaker"]:
+            sub = df[df["tool"] == tool].sort_values("k")
+            if sub.empty:
+                continue
+            panel_a_sources.append((tool, sub["k"].values, sub["elapsed_sec"].values))
+    _plot_panel(
+        ax_a,
+        panel_a_sources,
+        "AGP IBD cohort\n(sex + age category + BMI category)",
+    )
+
+    # ── Panel b: historical Wisconsin 16S (Patel et al.) ─────────────────────
+    panel_b_sources = []
+    for tool in ["qupid", "R Matching", "SPSS FUZZY"]:
+        kv = sorted(HISTORICAL[tool].keys())
+        tv = [HISTORICAL[tool][k] for k in kv]
+        panel_b_sources.append((tool, kv, tv))
+    _plot_panel(
+        ax_b,
+        panel_b_sources,
+        "Wisconsin 16S dementia-AD\n(Patel et al., historical; sex + age ±4.5 yr)",
+    )
+
+    _add_panel_label(ax_a, "a")
+    _add_panel_label(ax_b, "b")
 
     out = pathlib.Path("figures")
     out.mkdir(exist_ok=True)

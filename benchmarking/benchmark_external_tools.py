@@ -79,6 +79,7 @@ PALETTE = {
     "MatchIt": "#EE7733",
     "R Matching": "#009988",
     "CEM": "#CC3311",
+    "q2-matchmaker": "#EE3377",
     "miMatch": "#9467bd",
 }
 LINESTYLES = {
@@ -86,6 +87,7 @@ LINESTYLES = {
     "MatchIt": "--",
     "R Matching": "-.",
     "CEM": ":",
+    "q2-matchmaker": (0, (3, 1, 1, 1)),
     "miMatch": (0, (1, 1)),
 }
 
@@ -314,6 +316,44 @@ def time_matchit(
 # The manuscript frames miMatch accordingly as an indirect, microbiome-
 # intrinsic approach distinct from direct host-covariate matching. This stub
 # is kept only so the tool degrades gracefully to N/A rather than erroring.
+
+
+# ---------------------------------------------------------------------------
+# q2-matchmaker timing (Python; Morton et al., 2023 — Nat. Neurosci.)
+# ---------------------------------------------------------------------------
+#
+# Calls q2_matchmaker._matching._matchmaker on a unified focus+background table
+# with the case/control indicator as the `status` column. Matching variables are
+# the same categorical AGP covariates (sex, age_cat, bmi_cat). types=[True]*N
+# tells matchmaker to treat each column as categorical (exact match).
+# Returns None if the package isn't importable, so the script degrades gracefully.
+
+
+def time_matchmaker(
+    focus: pd.DataFrame,
+    background: pd.DataFrame,
+    k: int,
+    n_repeat: int = N_REPEAT,
+) -> float | None:
+    try:
+        from q2_matchmaker._matching import _matchmaker
+    except ImportError:
+        return None
+
+    cats = AGP_DISCRETE_CATS + list(AGP_NUMERIC_TOLS.keys())
+    df = pd.concat([focus.assign(_status=1), background.assign(_status=0)])
+    times = []
+    for _ in range(n_repeat):
+        t0 = time.perf_counter()
+        for _ in range(k):
+            _ = _matchmaker(
+                df,
+                status="_status",
+                match_columns=cats,
+                types=[True] * len(cats),
+            )
+        times.append(time.perf_counter() - t0)
+    return float(np.median(times))
 
 
 def time_mimatch(
@@ -553,6 +593,15 @@ def run_benchmarks(
         else:
             print("  CEM=N/A", end="", flush=True)
 
+        t = time_matchmaker(focus, background, k)
+        if t is not None:
+            rows.append(
+                {"tool": "q2-matchmaker", "k": k, "elapsed_sec": t, "dataset": "AGP"}
+            )
+            print(f"  matchmaker={t:.3f}s", end="", flush=True)
+        else:
+            print("  matchmaker=N/A", end="", flush=True)
+
         t = time_mimatch(focus, background, k)
         if t is not None:
             rows.append({"tool": "miMatch", "k": k, "elapsed_sec": t, "dataset": "AGP"})
@@ -595,7 +644,9 @@ def plot(agp_df: pd.DataFrame, out: Path) -> None:
     ax.set_yscale("log")
     ax.set_xlabel("Number of matchings (k)")
     ax.set_ylabel("Wall-clock time (s)")
-    ax.set_title("Runtime vs. k — modern tools\n(AGP IBD cohort, sex + age_cat + bmi_cat)")
+    ax.set_title(
+        "Runtime vs. k — modern tools\n(AGP IBD cohort, sex + age_cat + bmi_cat)"
+    )
     ax.legend(frameon=True, fontsize=9)
     ax.grid(True, which="both", alpha=0.3)
 

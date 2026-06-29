@@ -165,7 +165,10 @@ def main() -> None:
     ax.set_yscale("log")
     ax.set_xlabel("Background pool size")
     ax.set_ylabel("Wall-clock time (s)")
-    ax.set_title(f"Runtime vs. background size\n({n_cases_bg} cases, k = {k_bg})")
+    ax.set_title(
+        f"Runtime vs. background size — Qupid vs cached-greedy vs rebuild-every-iter\n"
+        f"({n_cases_bg} cases, k = {k_bg})"
+    )
     ax.grid(True, which="both", alpha=0.2, linewidth=0.3)
 
     # ── Panel b: Runtime vs iterations ───────────────────────────────────
@@ -212,7 +215,8 @@ def main() -> None:
     ax.set_xlabel("Number of matchings (k)")
     ax.set_ylabel("Wall-clock time (s)")
     ax.set_title(
-        f"Runtime vs. number of matchings\n({n_cases_it} cases, {n_bg_it} controls)"
+        f"Runtime vs. number of matchings — Qupid vs cached-greedy vs rebuild-every-iter\n"
+        f"({n_cases_it} cases, {n_bg_it} controls)"
     )
     ax.grid(True, which="both", alpha=0.2, linewidth=0.3)
 
@@ -235,7 +239,10 @@ def main() -> None:
     ax.set_xscale("log")
     ax.set_xlabel("Background pool size")
     ax.set_ylabel("Fraction of matchings fully solved")
-    ax.set_title(f"Matching success rate\n({n_cases_bg} cases, k = {k_bg})")
+    ax.set_title(
+        f"Matching success rate — Qupid (Hopcroft–Karp) vs greedy baselines\n"
+        f"({n_cases_bg} cases, k = {k_bg})"
+    )
     ax.set_ylim(-0.05, 1.05)
     ax.grid(True, which="both", alpha=0.2, linewidth=0.3)
 
@@ -269,7 +276,10 @@ def main() -> None:
     ax.set_xscale("log")
     ax.set_xlabel("Number of matchings (k)")
     ax.set_ylabel("Speedup over naive (×)")
-    ax.set_title(f"Qupid speedup over naive\n({n_cases_it} cases, {n_bg_it} controls)")
+    ax.set_title(
+        f"Qupid speedup over rebuild-every-iter baseline\n"
+        f"({n_cases_it} cases, {n_bg_it} controls)"
+    )
     ax.grid(True, which="both", alpha=0.2, linewidth=0.3)
 
     # Panel labels
