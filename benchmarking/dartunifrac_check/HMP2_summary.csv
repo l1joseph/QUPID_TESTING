@@ -1,0 +1,2 @@
+cohort,pre_r2_mean,pre_r2_std,post_r2_mean,post_r2_std,t_stat,p_value,n_sig_pre_pooled,n_sig_post_pooled,n_sig_post_restricted
+HMP2,2.06425390336004,0.2718113769946638,1.731592930670872,0.03615477998957571,12.071006172427214,1.6727806059901782e-25,100,100,100

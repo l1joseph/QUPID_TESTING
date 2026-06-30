@@ -1,0 +1,2 @@
+cohort,pre_r2_mean,pre_r2_std,post_r2_mean,post_r2_std,t_stat,p_value,n_sig_pre_pooled,n_sig_post_pooled,n_sig_post_restricted
+THDMI,0.21833903802431362,0.037533814428625446,0.13449323445934575,0.015617499190650839,20.52120071748457,6.605354764306079e-51,97,14,65
