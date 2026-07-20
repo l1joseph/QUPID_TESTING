@@ -412,12 +412,12 @@ def main() -> None:
     fig.tight_layout()
     for ext in ("png", "pdf"):
         fig.savefig(
-            OUT / f"figS3_sampling_characterization.{ext}",
+            OUT / f"figS2_sampling_characterization.{ext}",
             dpi=200,
             bbox_inches="tight",
         )
     plt.close(fig)
-    print(f"Figure written to {OUT}/figS3_sampling_characterization.{{png,pdf}}")
+    print(f"Figure written to {OUT}/figS2_sampling_characterization.{{png,pdf}}")
 
 
 if __name__ == "__main__":

@@ -2,7 +2,7 @@
 hmp2_covariate_balance.py
 ==========================
 
-Demonstrate Qupid's `compute_covariate_balance` (Supplementary Figure 4)
+Demonstrate Qupid's `compute_covariate_balance` (Supplementary Figure 3)
 on the HMP2 IBD cohort.
 
 Compute standardized mean differences (SMD; Cohen's d) for each matching
@@ -11,7 +11,7 @@ Love plot — the standard covariate-balance visualization in causal
 inference.
 
 Output:
-    figures/figS4_hmp2_covariate_balance.{png,pdf}
+    figures/figS3_hmp2_covariate_balance.{png,pdf}
 """
 
 from __future__ import annotations
@@ -208,13 +208,13 @@ ax.grid(True, axis="x", alpha=0.3)
 fig.tight_layout()
 for ext in ("png", "pdf"):
     fig.savefig(
-        OUT_DIR / f"figS4_hmp2_covariate_balance.{ext}",
+        OUT_DIR / f"figS3_hmp2_covariate_balance.{ext}",
         dpi=200,
         bbox_inches="tight",
     )
 plt.close(fig)
 
-print(f"\nFigure written to {OUT_DIR}/figS4_hmp2_covariate_balance.{{png,pdf}}")
+print(f"\nFigure written to {OUT_DIR}/figS3_hmp2_covariate_balance.{{png,pdf}}")
 
 # Save the numeric summary too
 summary_path = OUT_DIR.parent / "benchmark_real" / "hmp2_covariate_balance_summary.tsv"

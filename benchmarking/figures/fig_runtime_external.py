@@ -2,15 +2,15 @@
 """
 fig_runtime_external — qupid vs. external matching tools.
 
-Two-panel figure ported from Patel et al.'s LNP_01_Runtime_Analysis.ipynb.
+Two-panel figure.
 
 Panel (a): new AGP IBD benchmark. Qupid vs. four widely used host-covariate
 matching tools (MatchIt, R Matching, CEM, q2-matchmaker) under categorical
 matching (sex + age_cat + bmi_cat). Reads benchmark_real/agp_external_results.tsv.
 
-Panel (b): historical Wisconsin 16S dementia-AD benchmark from Patel et al.
+Panel (b): historical Wisconsin 16S dementia-AD benchmark.
 SPSS FUZZY, R Matching, and qupid timings at k ∈ {10, 100, 1000, 10000},
-sex + age ±4.5 yr. Hard-coded from LNP_01 so the figure is self-contained.
+sex + age ±4.5 yr. Hard-coded so the figure is self-contained.
 
 Both panels share log-log axes for direct visual comparison of scale; SPSS
 FUZZY hitting ~40,000 s at k = 1,000 vs qupid at < 1 s is the headline
@@ -87,8 +87,8 @@ STYLE = {
     "SPSS FUZZY": {"color": "#CC3311", "ls": ":", "marker": "D"},
 }
 
-# ── Historical Wisconsin 16S benchmark from LNP_01_Runtime_Analysis.ipynb ────
-#    Patel et al., dementia-AD cohort, sex + age ±4.5 yr.
+# ── Historical Wisconsin 16S benchmark ────────────────────────────────────────
+#    Dementia-AD cohort, sex + age ±4.5 yr.
 HISTORICAL = {
     "SPSS FUZZY": {10: 11.75, 100: 498.6, 1000: 39654.0},
     "R Matching": {10: 0.112, 100: 1.162, 1000: 11.84, 10000: 113.7},
@@ -159,7 +159,7 @@ def main():
         "AGP IBD cohort\n(sex + age category + BMI category)",
     )
 
-    # ── Panel b: historical Wisconsin 16S (Patel et al.) ─────────────────────
+    # ── Panel b: historical Wisconsin 16S ────────────────────────────────────
     panel_b_sources = []
     for tool in ["qupid", "R Matching", "SPSS FUZZY"]:
         kv = sorted(HISTORICAL[tool].keys())
@@ -168,7 +168,7 @@ def main():
     _plot_panel(
         ax_b,
         panel_b_sources,
-        "Wisconsin 16S dementia-AD\n(Patel et al., historical; sex + age ±4.5 yr)",
+        "Wisconsin 16S dementia-AD\n(historical; sex + age ±4.5 yr)",
     )
 
     _add_panel_label(ax_a, "a")
