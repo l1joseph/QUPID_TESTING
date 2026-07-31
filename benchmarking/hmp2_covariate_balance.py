@@ -184,23 +184,26 @@ for i, row in enumerate(balance.itertuples()):
 ax.axvline(0.1, color="black", linestyle="--", linewidth=0.75, alpha=0.6)
 ax.text(
     0.105,
-    len(balance) - 0.3,
+    len(balance) - 1.1,
     "|SMD| = 0.1\n(well-balanced)",
     fontsize=8,
     color="black",
     alpha=0.7,
     va="top",
+    clip_on=True,
 )
 
 ax.set_yticks(y_pos)
 ax.set_yticklabels(balance["display"])
 ax.set_xlabel("|Standardized mean difference| (Cohen's d)")
 ax.set_xlim(0, max(0.3, balance["smd_pre"].abs().max() * 1.1))
+ax.set_ylim(-0.7, len(balance) - 0.3)
 ax.set_title(
     f"HMP2 covariate balance pre- vs. post-CCM\n"
     f"({len(focus)} IBD cases, {len(background)} nonIBD controls; "
     f"{len(matching.cases)} matched pairs)",
     fontsize=10,
+    pad=16,
 )
 ax.legend(loc="lower right", frameon=True, fontsize=9)
 ax.grid(True, axis="x", alpha=0.3)

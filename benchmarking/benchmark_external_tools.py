@@ -560,24 +560,25 @@ def run_benchmarks(
     focus: pd.DataFrame,
     background: pd.DataFrame,
     k_values: list[int] = K_VALUES,
+    n_repeat: int = N_REPEAT,
 ) -> pd.DataFrame:
     rows = []
 
     for k in k_values:
         print(f"  k={k}", end="", flush=True)
 
-        t = time_qupid(focus, background, k)
+        t = time_qupid(focus, background, k, n_repeat=n_repeat)
         rows.append({"tool": "qupid", "k": k, "elapsed_sec": t, "dataset": "AGP"})
         print(f"  qupid={t:.3f}s", end="", flush=True)
 
-        t = time_matchit(focus, background, k)
+        t = time_matchit(focus, background, k, n_repeat=n_repeat)
         if t is not None:
             rows.append({"tool": "MatchIt", "k": k, "elapsed_sec": t, "dataset": "AGP"})
             print(f"  MatchIt={t:.3f}s", end="", flush=True)
         else:
             print("  MatchIt=N/A", end="", flush=True)
 
-        t = time_r_matching(focus, background, k)
+        t = time_r_matching(focus, background, k, n_repeat=n_repeat)
         if t is not None:
             rows.append(
                 {"tool": "R Matching", "k": k, "elapsed_sec": t, "dataset": "AGP"}
@@ -586,14 +587,14 @@ def run_benchmarks(
         else:
             print("  RMatching=N/A", end="", flush=True)
 
-        t = time_cem(focus, background, k)
+        t = time_cem(focus, background, k, n_repeat=n_repeat)
         if t is not None:
             rows.append({"tool": "CEM", "k": k, "elapsed_sec": t, "dataset": "AGP"})
             print(f"  CEM={t:.3f}s", end="", flush=True)
         else:
             print("  CEM=N/A", end="", flush=True)
 
-        t = time_matchmaker(focus, background, k)
+        t = time_matchmaker(focus, background, k, n_repeat=n_repeat)
         if t is not None:
             rows.append(
                 {"tool": "q2-matchmaker", "k": k, "elapsed_sec": t, "dataset": "AGP"}
@@ -602,7 +603,7 @@ def run_benchmarks(
         else:
             print("  matchmaker=N/A", end="", flush=True)
 
-        t = time_mimatch(focus, background, k)
+        t = time_mimatch(focus, background, k, n_repeat=n_repeat)
         if t is not None:
             rows.append({"tool": "miMatch", "k": k, "elapsed_sec": t, "dataset": "AGP"})
             print(f"  miMatch={t:.3f}s", end="", flush=True)
@@ -688,6 +689,16 @@ def main() -> None:
         type=int,
         default=K_VALUES,
     )
+    p.add_argument(
+        "--n-repeat",
+        type=int,
+        default=N_REPEAT,
+        help="Median-of-N repeats per tool per k. Lower this when running large "
+        "k-values as a separate invocation to stay under a login-node CPU "
+        "ulimit: qupid and q2-matchmaker run in-process, so their CPU time "
+        "accumulates against this single process's RLIMIT_CPU, unlike the "
+        "R-tool subprocess calls, which each get their own budget.",
+    )
     args = p.parse_args()
 
     args.output_dir.mkdir(parents=True, exist_ok=True)
@@ -707,7 +718,7 @@ def main() -> None:
     print(f"k values: {args.k_values}")
     print()
 
-    df = run_benchmarks(focus, background, args.k_values)
+    df = run_benchmarks(focus, background, args.k_values, n_repeat=args.n_repeat)
 
     if args.results_out:
         args.results_out.parent.mkdir(parents=True, exist_ok=True)

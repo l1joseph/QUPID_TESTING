@@ -78,14 +78,20 @@ NATURE_FORMATS = ["pdf", "png"]
 NATURE_DPI = 450
 
 # ── Per-tool styling (Paul Tol colorblind-safe palette) ──────────────────────
+# Each tool gets a unique color+marker across the whole figure, even though
+# CEM (panel a) and SPSS FUZZY (panel b) never share an axes, so a reader
+# comparing panels doesn't see two tools rendered identically.
 STYLE = {
     "qupid": {"color": "#0077BB", "ls": "-", "marker": "o"},
     "MatchIt": {"color": "#EE7733", "ls": "--", "marker": "s"},
     "R Matching": {"color": "#009988", "ls": "-.", "marker": "^"},
     "CEM": {"color": "#CC3311", "ls": ":", "marker": "D"},
     "q2-matchmaker": {"color": "#EE3377", "ls": (0, (3, 1, 1, 1)), "marker": "v"},
-    "SPSS FUZZY": {"color": "#CC3311", "ls": ":", "marker": "D"},
+    "SPSS FUZZY": {"color": "#AA3377", "ls": ":", "marker": "P"},
 }
+
+# Display labels for the legend only; STYLE/data lookups keep the raw keys.
+DISPLAY_LABEL = {"qupid": "Qupid"}
 
 # ── Historical Wisconsin 16S benchmark ────────────────────────────────────────
 #    Dementia-AD cohort, sex + age ±4.5 yr.
@@ -110,7 +116,7 @@ def _plot_panel(ax, sources, title):
             linewidth=1.0,
             linestyle=s["ls"],
             color=s["color"],
-            label=label,
+            label=DISPLAY_LABEL.get(label, label),
             clip_on=False,
         )
     ax.set_xscale("log")
